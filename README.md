@@ -35,24 +35,6 @@ int main(void) {
     return 0;
 }
 ```
-
-## API
-
-### Demo 1 — profile current thread
-
-- `kpc_init()` — load private frameworks via dlopen. Returns 0 on failure.
-- `kpc_configure(counter_map)` — set up counters, fills `kpc_u64[KPC_MAX_COUNTERS]` map. Returns 0 on success.
-- `kpc_read(buf)` — read current thread counters into a `kpc_u64[KPC_MAX_COUNTERS]`.
-- `kpc_shutdown()` — disable counters.
-
-### Demo 2 — profile external process
-
-- `kpc_profile_pid(pid, time_s, sample_s)` — sample a process by PID for `time_s` seconds at `sample_s` intervals. Prints per-thread and aggregate results. Returns 0 on success.
-
-## Events
-
-Access counter indices via the `kpc_event_id` enum:
-
 - `KPC_EVENT_CYCLES` — CPU clock cycles
 - `KPC_EVENT_INSTRUCTIONS` — retired instructions
 - `KPC_EVENT_BRANCHES` — branch instructions
