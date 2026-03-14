@@ -15,6 +15,9 @@
 //   kpc_profile_pid(pid, time_s, sample_s)
 //
 // Requires: sudo (root privileges)
+//
+// Options (define before including):
+//   KPC_QUIET — suppress info prints (errors still print)
 
 #ifndef KPC_H
 #define KPC_H
@@ -236,6 +239,13 @@ const char *kpep_config_error_desc(int code);
 #include <dlfcn.h>
 #include <stdio.h>
 #include <stdlib.h>
+
+#ifdef KPC_QUIET
+#define kpc__info(...) ((void)0)
+#else
+#define kpc__info(...) printf(__VA_ARGS__)
+#endif
+#define kpc__err(...) printf(__VA_ARGS__)
 #include <string.h>
 #include <unistd.h>
 #include <sys/sysctl.h>
@@ -580,7 +590,7 @@ static kpep_event *kpc__find_event(kpep_db *db, const kpc_event_alias *alias) {
 
 int kpc_init(void) {
   if (!kpc__lib_init()) {
-    printf("kpc: %s\n", kpc__lib_err_msg);
+    kpc__err("kpc: %s\n", kpc__lib_err_msg);
     return 0;
   }
   return 1;
@@ -589,34 +599,34 @@ int kpc_init(void) {
 int kpc_configure(kpc_u64 *counter_map) {
   int force = 0;
   if (kpc__force_all_ctrs_get(&force)) {
-    printf("kpc: permission denied (needs root)\n");
+    kpc__err("kpc: permission denied (needs root)\n");
     return 1;
   }
 
   kpep_db *db = NULL;
   if (kpep__db_create(NULL, &db)) {
-    printf("kpc: failed to load PMC database\n");
+    kpc__err("kpc: failed to load PMC database\n");
     return 1;
   }
 
-  printf("kpc: loaded db: %s (%s)\n", db->name, db->marketing_name);
-  printf("kpc: fixed counters: %zu, configurable counters: %zu\n",
+  kpc__info("kpc: loaded db: %s (%s)\n", db->name, db->marketing_name);
+  kpc__info("kpc: fixed counters: %zu, configurable counters: %zu\n",
          db->fixed_counter_count, db->config_counter_count);
 
   kpep_config *cfg = NULL;
   if (kpep__config_create(db, &cfg) || kpep__config_force_counters(cfg)) {
-    printf("kpc: failed to create config\n");
+    kpc__err("kpc: failed to create config\n");
     return 1;
   }
 
   for (int i = 0; i < KPC_EVENT_COUNT; i++) {
     kpep_event *ev = kpc__find_event(db, &kpc_events[i]);
     if (!ev) {
-      printf("kpc: event not found: %s\n", kpc_events[i].alias);
+      kpc__err("kpc: event not found: %s\n", kpc_events[i].alias);
       return 1;
     }
     if (kpep__config_add_event(cfg, &ev, 0, NULL)) {
-      printf("kpc: failed to add event: %s\n", kpc_events[i].alias);
+      kpc__err("kpc: failed to add event: %s\n", kpc_events[i].alias);
       return 1;
     }
   }
@@ -630,7 +640,7 @@ int kpc_configure(kpc_u64 *counter_map) {
       kpep__config_kpc_count(cfg, &reg_count) ||
       kpep__config_kpc_map(cfg, map, sizeof(map)) ||
       kpep__config_kpc(cfg, regs, sizeof(regs))) {
-    printf("kpc: failed to get config\n");
+    kpc__err("kpc: failed to get config\n");
     return 1;
   }
 
@@ -638,19 +648,19 @@ int kpc_configure(kpc_u64 *counter_map) {
     counter_map[i] = (kpc_u64)map[i];
 
   if (kpc__force_all_ctrs_set(1)) {
-    printf("kpc: failed to force counters\n");
+    kpc__err("kpc: failed to force counters\n");
     return 1;
   }
 
   if ((classes & KPC_CLASS_CONFIGURABLE_MASK) && reg_count) {
     if (kpc__set_config(classes, regs)) {
-      printf("kpc: failed to set config\n");
+      kpc__err("kpc: failed to set config\n");
       return 1;
     }
   }
 
   if (kpc__set_counting(classes) || kpc__set_thread_counting(classes)) {
-    printf("kpc: failed to enable counting\n");
+    kpc__err("kpc: failed to enable counting\n");
     return 1;
   }
 
@@ -690,7 +700,7 @@ typedef struct {
 
 int kpc_profile_pid(kpc_i32 pid, double profile_time_s, double sample_period_s) {
   if (!kpc__lib_inited || kpc__lib_has_err) {
-    printf("kpc: not initialized\n");
+    kpc__err("kpc: not initialized\n");
     return 1;
   }
 
@@ -698,21 +708,21 @@ int kpc_profile_pid(kpc_i32 pid, double profile_time_s, double sample_period_s) 
 
   kpep_db *db = NULL;
   if ((ret = kpep__db_create(NULL, &db))) {
-    printf("kpc: cannot load pmc database: %d\n", ret);
+    kpc__err("kpc: cannot load pmc database: %d\n", ret);
     return 1;
   }
 
-  printf("kpc: loaded db: %s (%s)\n", db->name, db->marketing_name);
-  printf("kpc: tick frequency: %llu\n", (unsigned long long)kperf__tick_frequency());
+  kpc__info("kpc: loaded db: %s (%s)\n", db->name, db->marketing_name);
+  kpc__info("kpc: tick frequency: %llu\n", (unsigned long long)kperf__tick_frequency());
 
   kpep_config *cfg = NULL;
   if ((ret = kpep__config_create(db, &cfg))) {
-    printf("kpc: failed to create config: %d (%s)\n", ret, kpep_config_error_desc(ret));
+    kpc__err("kpc: failed to create config: %d (%s)\n", ret, kpep_config_error_desc(ret));
     return 1;
   }
 
   if ((ret = kpep__config_force_counters(cfg))) {
-    printf("kpc: failed to force counters: %d (%s)\n", ret, kpep_config_error_desc(ret));
+    kpc__err("kpc: failed to force counters: %d (%s)\n", ret, kpep_config_error_desc(ret));
     return 1;
   }
 
@@ -720,11 +730,11 @@ int kpc_profile_pid(kpc_i32 pid, double profile_time_s, double sample_period_s) 
   for (int i = 0; i < KPC_EVENT_COUNT; i++) {
     ev_arr[i] = kpc__find_event(db, &kpc_events[i]);
     if (!ev_arr[i]) {
-      printf("kpc: event not found: %s\n", kpc_events[i].alias);
+      kpc__err("kpc: event not found: %s\n", kpc_events[i].alias);
       return 1;
     }
     if ((ret = kpep__config_add_event(cfg, &ev_arr[i], 0, NULL))) {
-      printf("kpc: failed to add event: %d (%s)\n", ret, kpep_config_error_desc(ret));
+      kpc__err("kpc: failed to add event: %d (%s)\n", ret, kpep_config_error_desc(ret));
       return 1;
     }
   }
@@ -738,30 +748,30 @@ int kpc_profile_pid(kpc_i32 pid, double profile_time_s, double sample_period_s) 
       kpep__config_kpc_count(cfg, &reg_count) ||
       kpep__config_kpc_map(cfg, counter_map, sizeof(counter_map)) ||
       kpep__config_kpc(cfg, regs, sizeof(regs))) {
-    printf("kpc: failed to get config\n");
+    kpc__err("kpc: failed to get config\n");
     return 1;
   }
 
   if (kpc__force_all_ctrs_set(1)) {
-    printf("kpc: failed to force counters\n");
+    kpc__err("kpc: failed to force counters\n");
     return 1;
   }
 
   if ((classes & KPC_CLASS_CONFIGURABLE_MASK) && reg_count) {
     if (kpc__set_config(classes, regs)) {
-      printf("kpc: failed to set config\n");
+      kpc__err("kpc: failed to set config\n");
       return 1;
     }
   }
 
   kpc_u32 counter_count = kpc__get_counter_count(classes);
   if (counter_count == 0) {
-    printf("kpc: no counters available\n");
+    kpc__err("kpc: nocounters available\n");
     return 1;
   }
 
   if (kpc__set_counting(classes) || kpc__set_thread_counting(classes)) {
-    printf("kpc: failed to enable counting\n");
+    kpc__err("kpc: failed to enable counting\n");
     return 1;
   }
 
@@ -840,12 +850,12 @@ int kpc_profile_pid(kpc_i32 pid, double profile_time_s, double sample_period_s) 
   kpc__force_all_ctrs_set(0);
 
   if (!buf_hdr) {
-    printf("kpc: failed to allocate trace buffer\n");
+    kpc__err("kpc: failed to allocate trace buffer\n");
     return 1;
   }
 
   if (buf_cur - buf_hdr == 0) {
-    printf("kpc: no thread PMC data collected\n");
+    kpc__err("kpc: nothread PMC data collected\n");
     free(buf_hdr);
     return 1;
   }
@@ -855,7 +865,7 @@ int kpc_profile_pid(kpc_i32 pid, double profile_time_s, double sample_period_s) 
   size_t thread_count = 0;
   kpc_thread_data *thread_data = (kpc_thread_data *)malloc(thread_capacity * sizeof(kpc_thread_data));
   if (!thread_data) {
-    printf("kpc: failed to allocate thread data\n");
+    kpc__err("kpc: failed to allocate thread data\n");
     free(buf_hdr);
     return 1;
   }
@@ -901,7 +911,7 @@ int kpc_profile_pid(kpc_i32 pid, double profile_time_s, double sample_period_s) 
         kpc_thread_data *new_data = (kpc_thread_data *)realloc(
             thread_data, thread_capacity * sizeof(kpc_thread_data));
         if (!new_data) {
-          printf("kpc: failed to allocate thread data\n");
+          kpc__err("kpc: failed to allocate thread data\n");
           free(thread_data);
           free(buf_hdr);
           return 1;
