@@ -228,6 +228,7 @@ int kpc_init(void);
 int kpc_configure(kpc_u64 *counter_map);
 void kpc_read(kpc_u64 *buf);
 void kpc_shutdown(void);
+kpc_u64 kpc_tick_frequency(void);
 int kpc_profile_pid(kpc_i32 pid, double profile_time_s, double sample_period_s);
 const char *kpep_config_error_desc(int code);
 
@@ -675,6 +676,10 @@ void kpc_shutdown(void) {
   kpc__set_counting(0);
   kpc__set_thread_counting(0);
   kpc__force_all_ctrs_set(0);
+}
+
+kpc_u64 kpc_tick_frequency(void) {
+  return kperf__tick_frequency();
 }
 
 // -------------------------------------------------------------------------
