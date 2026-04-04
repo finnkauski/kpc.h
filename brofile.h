@@ -22,7 +22,6 @@
 
 #ifndef BROFILER_MAX_ANCHORS
 #define BROFILER_MAX_ANCHORS 4096
-#endif 
 
 #include <inttypes.h>
 #include <stdint.h>
@@ -516,3 +515,4 @@ void brofiler_end(void) {
 }
 
 #endif // BROFILER_IMPLEMENTATION
+#endif // BROFILER_H
